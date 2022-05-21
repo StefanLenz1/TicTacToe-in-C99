@@ -1,4 +1,6 @@
-// Benutzung: ./tictactoe [easy, hard]
+// Benutzung: ./tictactoe [player, easy, hard] [player, easy, hard]
+#define activateComDelay true // Vor jedem Com Zug wird etwa 1 Sekunde gewartet
+
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
@@ -7,21 +9,20 @@
 #include <stdlib.h>
 #include <time.h>
 
-typedef struct MoveStruct
+typedef struct MoveStruct // Nur für minimax
 {
     int move;
     int score;
 } moveStruct;
 
 #define emptyField 0
-#define comField 1
-#define playerField 2
+#define player1_Field 1
+#define player2_Field 2
 
 int (*setDifficulty(char *difficulty))(int);
 int getMovePlayer();
 int getMoveComEasy(int recentMove);
 
-//Minimax functions
 int getMoveComHard(int recentMove);
 moveStruct findBestMoveMinimax(int recentMove, bool currentPlayer);
 moveStruct minOrMaxMinimax(bool currentPlayer, moveStruct scores[], int amountRemainingFields);
@@ -30,9 +31,9 @@ int checkFullFieldMinimax(int recentMove);
 int *getRemainingFields();
 bool checkWinner(int recentMove, int player);
 bool checkInput(char input[]);
-void displayGraph();
+void displayGraph(char recentPlayer);
 
-int tictactoeField[9] = {}; // Jedes Element zu 0 initiieren. 0 ist Leer, 1 ist O and 2 ist X, ? ist ein Error
+int tictactoeField[9] = {0}; // Jedes Element zu 0 initiieren. 0 ist Leer, 1 ist O and 2 ist X, ? ist ein Error
 /* Tictactoe Feld
     012
     345
@@ -41,35 +42,42 @@ int tictactoeField[9] = {}; // Jedes Element zu 0 initiieren. 0 ist Leer, 1 ist 
 
 int main(int argc, char *argv[])
 {
-    if (argc != 2)
+    if (argc != 3)
     {
-        printf("Falsche Anzahl an Argumente (Programm Funktionsweise: ./tictactoe [easy, hard])\n");
+        printf("Falsche Anzahl an Argumente (Programm Funktionsweise: ./tictactoe [player, easy, hard] [player, easy, hard])\n");
         return 1;
     }
-    int (*getMoveCom_ptr)(int) = setDifficulty(argv[1]); // Function Pointer um Schwierigkeit bei jeden Zug umzustellen
-    if (getMoveCom_ptr == NULL)
+    int (*getMove1_ptr)(int) = setDifficulty(argv[1]); // Function Pointer um Schwierigkeit einzustellen: Spieler 1
+    int (*getMove2_ptr)(int) = setDifficulty(argv[2]); // Function Pointer um Schwierigkeit einzustellen: Spieler 2
+    if ((getMove1_ptr == NULL) || (getMove2_ptr == NULL))
     {
-        printf("Nicht vorhandener Spielmodus (Programm Funktionsweise: ./tictactoe [easy, hard])\n");
+        printf("Nicht vorhandener Spielmodus (Programm Funktionsweise: ./tictactoe [player, easy, hard] [player, easy, hard])\n");
         return 2;
     }
 
     srand(time(NULL));
-    int movePlayer, moveCom;
+    int movePlayer1, movePlayer2;
     char winner;
-    displayGraph();
 
+    int recentMove = -1;     // Auserhalb des Feldes
+    char nextPlayer = 'O'; // X fängt immer an
+
+    displayGraph(nextPlayer);
     while (true)
     {
-        movePlayer = getMovePlayer();
-        tictactoeField[movePlayer] = playerField;
-        if (checkWinner(movePlayer, playerField))
+        movePlayer1 = getMove1_ptr(recentMove);
+        tictactoeField[movePlayer1] = player1_Field;
+        if (checkWinner(movePlayer1, player1_Field))
         {
-            winner = 'X';
+            winner = 'O';
             break;
         }
+        recentMove = movePlayer1;
+        nextPlayer = 'X';
+        displayGraph(nextPlayer);
 
         int *remainingFieldsPtr = getRemainingFields();
-        int amountRemainingFields = *remainingFieldsPtr;
+        const int amountRemainingFields = *remainingFieldsPtr;
         free(remainingFieldsPtr);
 
         if (amountRemainingFields == 0) // Das Feld ist voll
@@ -78,21 +86,18 @@ int main(int argc, char *argv[])
             break;
         }
 
-        //Delay nach Spielerzug
-        /*displayGraph();
-        unsigned int delay = time(0) + 1; //Com Zug wartet
-        while (time(0) < delay);*/
-
-        moveCom = getMoveCom_ptr(movePlayer);
-        tictactoeField[moveCom] = comField;
-        if (checkWinner(moveCom, comField))
+        movePlayer2 = getMove2_ptr(recentMove);
+        tictactoeField[movePlayer2] = player2_Field;
+        if (checkWinner(movePlayer2, player2_Field))
         {
-            winner = 'O';
+            winner = 'X';
             break;
         }
-        displayGraph();
+        recentMove = movePlayer2;
+        nextPlayer = 'O';
+        displayGraph(nextPlayer);
     }
-    displayGraph();
+    displayGraph(nextPlayer);
     printf("\nWinner: %c\n", winner);
 }
 
@@ -105,6 +110,10 @@ int (*setDifficulty(char *difficulty))(int)
     else if (strcmp(difficulty, "hard") == 0)
     {
         return getMoveComHard;
+    }
+    else if (strcmp(difficulty, "player") == 0)
+    {
+        return getMovePlayer;
     }
     else
     {
@@ -129,9 +138,16 @@ int getMovePlayer()
 
 int getMoveComEasy(int recentMove) // Feldauswahl durch reinen Zufall
 {
+    if (activateComDelay)
+    {
+        unsigned int delay = time(0) + 1; // Com Zug wartet 1 Sekunde
+        while (time(0) < delay)
+            ;
+    }
+
     int *remainingFieldsPtr = getRemainingFields();
-    int randomNumber = rand() % *remainingFieldsPtr; // Zufällige Zahl zwischen: 0 und "remaining fields"
-    int move = remainingFieldsPtr[randomNumber + 1];
+    const int randomNumber = rand() % *remainingFieldsPtr; // Zufällige Zahl zwischen: 0 und "remaining fields"
+    const int move = remainingFieldsPtr[randomNumber + 1];
 
     free(remainingFieldsPtr);
     return move;
@@ -139,6 +155,13 @@ int getMoveComEasy(int recentMove) // Feldauswahl durch reinen Zufall
 
 int getMoveComHard(int recentMove) // Feldauswahl durch Minimax
 {
+    if (activateComDelay)
+    {
+        unsigned int delay = time(0) + 1; // Com Zug wartet 1 Sekunde
+        while (time(0) < delay)
+            ;
+    }
+
     moveStruct move = findBestMoveMinimax(recentMove, true);
     return move.move;
 }
@@ -146,12 +169,12 @@ int getMoveComHard(int recentMove) // Feldauswahl durch Minimax
 moveStruct findBestMoveMinimax(int recentMove, bool currentPlayer)
 {
     int *remainingFieldsPtr = getRemainingFields();
-    int amountRemainingFields = *remainingFieldsPtr;
+    const int amountRemainingFields = *remainingFieldsPtr;
     moveStruct move;
     move.move = recentMove;
 
     // Testet ob Spiel vorbei ist
-    int result = checkFullFieldMinimax(recentMove);
+    const int result = checkFullFieldMinimax(recentMove);
     if (result != 0)
     {
         move.score = result * (amountRemainingFields + 1);
@@ -160,15 +183,15 @@ moveStruct findBestMoveMinimax(int recentMove, bool currentPlayer)
     {
         move.score = 0;
     }
-    else //Wenn Spiel nicht vorbei ist
+    else // Wenn Spiel nicht vorbei ist
     {
         moveStruct scores[amountRemainingFields];
         for (int i = 0; i < amountRemainingFields; i++) // Scores von allen Feldern einsammeln
         {
             scores[i].move = remainingFieldsPtr[i + 1];
-            int currentPlayerField;
-            (currentPlayer) ? (currentPlayerField = comField) : (currentPlayerField = playerField);
-            tictactoeField[scores[i].move] = currentPlayerField; // Feld wird temporär belegt
+            int currentplayerField;
+            (currentPlayer) ? (currentplayerField = player2_Field) : (currentplayerField = player1_Field);
+            tictactoeField[scores[i].move] = currentplayerField; // Feld wird temporär belegt
             moveStruct tempMove = findBestMoveMinimax(scores[i].move, !currentPlayer);
             scores[i].score = tempMove.score;
             tictactoeField[scores[i].move] = emptyField; // Feld wird zurückgesetzt
@@ -210,11 +233,11 @@ moveStruct minOrMaxMinimax(bool currentPlayer, moveStruct scores[], int amountRe
 
 int checkFullFieldMinimax(int recentMove)
 {
-    if (checkWinner(recentMove, comField))
+    if (checkWinner(recentMove, player2_Field))
     {
         return 1;
     }
-    else if (checkWinner(recentMove, playerField))
+    else if (checkWinner(recentMove, player1_Field))
     {
         return -1;
     }
@@ -257,8 +280,8 @@ int *getRemainingFields()
 
 bool checkWinner(int recentMove, int player)
 {
-    int collumn = recentMove / 3;
-    int row = recentMove % 3;
+    const int collumn = recentMove / 3;
+    const int row = recentMove % 3;
     int checkTictactoe[3][3] = {};
 
     for (int i = 0; i < 3; i++)
@@ -292,38 +315,44 @@ bool checkWinner(int recentMove, int player)
 bool checkInput(char input[])
 {
     int *remainingFieldsPtr = getRemainingFields();
+    const int amountRemainingFields = *remainingFieldsPtr;
     input[0] = toupper(input[0]);
 
     if (!isalpha(input[0]) || !isdigit(input[1]) || (input[1] > '3') || input[1] == '0' || input[0] > 'C')
     {
-        displayGraph();
         printf("Ungültiger Eingabe\n");
 
         free(remainingFieldsPtr);
         return true;
     }
-    int inputHash = (input[0] - 'A') * 3 + input[1] - '1';
-    for (int i = 1; i < *remainingFieldsPtr + 1; i++) // Testet ob Feld belegt ist
+
+    const int inputHash = (input[0] - 'A') * 3 + input[1] - '1';
+    bool fieldIsTaken = true;
+
+    for (int i = 1; i < amountRemainingFields + 1; i++) // Testet ob Feld belegt ist
     {
-        if (inputHash == remainingFieldsPtr[i]) // Testet ob Feld Teil von freien Feldern ist
+        if (inputHash == remainingFieldsPtr[i])
         {
-            free(remainingFieldsPtr);
-            return false; // Feld ist gültig
+            fieldIsTaken = false;
         }
     }
+    if (fieldIsTaken)
+    {
+        printf("Belegtes Feld\n");
 
-    displayGraph();
-    printf("Belegtes Feld\n");
+        free(remainingFieldsPtr);
+        return true;
+    }
 
     free(remainingFieldsPtr);
-    return true;
+    return false; // Eingabe war erfolgreich
 }
 
-void displayGraph()
+void displayGraph(char recentPlayer)
 {
     for (int i = 0; i < 15; i++)
         putchar('\n');
-    printf("Du bist: X\n\n");
+    printf("%c ist am Zug\n\n", recentPlayer);
     printf("  123\n"); // spalten nummerieren
     putchar(' ');
     for (int i = 0; i < 5; i++)
