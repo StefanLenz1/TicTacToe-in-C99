@@ -15,9 +15,7 @@ typedef struct MoveStruct // Nur für minimax
     int score;
 } moveStruct;
 
-#define emptyField 0
-#define player1_Field 1
-#define player2_Field 2
+#define emptyField ' ' // Ein Leerzeichen
 
 int (*setDifficulty(char *difficulty))(int);
 int getMovePlayer();
@@ -33,7 +31,7 @@ bool checkWinner(int recentMove, int player);
 bool checkInput(char input[]);
 void displayGraph(char recentPlayer);
 
-int tictactoeField[9] = {0}; // Jedes Element zu 0 initiieren. 0 ist Leer, 1 ist O and 2 ist X, ? ist ein Error
+char tictactoeField[9]; // Jedes Element zu 0 initiieren. 0 ist Leer, 1 ist O and 2 ist X, ? ist ein Error
 /* Tictactoe Feld
     012
     345
@@ -55,19 +53,20 @@ int main(int argc, char *argv[])
         return 2;
     }
 
-    srand(time(NULL));
+    for (int i = 0; i < 9; i++)
+        tictactoeField[i] = emptyField;
     int movePlayer1, movePlayer2;
     char winner;
 
-    int recentMove = -1;     // Auserhalb des Feldes
+    int recentMove = -1;   // Auserhalb des Feldes
     char nextPlayer = 'O'; // X fängt immer an
 
     displayGraph(nextPlayer);
     while (true)
     {
         movePlayer1 = getMove1_ptr(recentMove);
-        tictactoeField[movePlayer1] = player1_Field;
-        if (checkWinner(movePlayer1, player1_Field))
+        tictactoeField[movePlayer1] = 'O';
+        if (checkWinner(movePlayer1, 'O'))
         {
             winner = 'O';
             break;
@@ -87,8 +86,8 @@ int main(int argc, char *argv[])
         }
 
         movePlayer2 = getMove2_ptr(recentMove);
-        tictactoeField[movePlayer2] = player2_Field;
-        if (checkWinner(movePlayer2, player2_Field))
+        tictactoeField[movePlayer2] = 'X';
+        if (checkWinner(movePlayer2, 'X'))
         {
             winner = 'X';
             break;
@@ -190,7 +189,7 @@ moveStruct findBestMoveMinimax(int recentMove, bool currentPlayer)
         {
             scores[i].move = remainingFieldsPtr[i + 1];
             int currentplayerField;
-            (currentPlayer) ? (currentplayerField = player2_Field) : (currentplayerField = player1_Field);
+            (currentPlayer) ? (currentplayerField = 'X') : (currentplayerField = 'O');
             tictactoeField[scores[i].move] = currentplayerField; // Feld wird temporär belegt
             moveStruct tempMove = findBestMoveMinimax(scores[i].move, !currentPlayer);
             scores[i].score = tempMove.score;
@@ -233,11 +232,11 @@ moveStruct minOrMaxMinimax(bool currentPlayer, moveStruct scores[], int amountRe
 
 int checkFullFieldMinimax(int recentMove)
 {
-    if (checkWinner(recentMove, player2_Field))
+    if (checkWinner(recentMove, 'X'))
     {
         return 1;
     }
-    else if (checkWinner(recentMove, player1_Field))
+    else if (checkWinner(recentMove, 'O'))
     {
         return -1;
     }
@@ -253,7 +252,7 @@ int *getRemainingFields()
 
     for (int i = 0; i < 9; i++)
     {
-        if (tictactoeField[i] == 0)
+        if (tictactoeField[i] == emptyField)
         {
             countFreeFields++;
         }
@@ -269,7 +268,7 @@ int *getRemainingFields()
 
     for (int i = 0, fillArrayCount = 1; i < 9; i++)
     {
-        if (tictactoeField[i] == 0)
+        if (tictactoeField[i] == emptyField)
         {
             remainingFields[fillArrayCount] = i; // Jedes drauffolgendes Element ist ein freies Feld
             fillArrayCount++;
@@ -375,21 +374,7 @@ void displayGraph(char recentPlayer)
         putchar('#');
         for (int j = 0; j < 3; j++)
         {
-            switch (tictactoeField[3 * i + j])
-            {
-            case 0:
-                putchar(' ');
-                break;
-            case 1:
-                putchar('O');
-                break;
-            case 2:
-                putchar('X');
-                break;
-            default:
-                putchar('?');
-                break;
-            }
+            putchar(tictactoeField[3 * i + j]);
         }
         putchar('#');
         putchar('\n');
